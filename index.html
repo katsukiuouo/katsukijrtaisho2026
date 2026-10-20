@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>カテゴリ別ランダム表示</title>
+<style>
+body {
+  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+  margin: 0;
+  background: #f0f8f5;
+  color: #333;
+}
+main {
+  max-width: 1000px;
+  margin: 30px auto;
+  padding: 0 20px;
+}
+p {
+  margin-bottom: 15px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  table-layout: fixed;
+}
+th, td {
+  border: 1px solid #cce3cc;
+  padding: 8px;
+  vertical-align: middle;
+  text-align: center;
+  word-wrap: break-word;
+}
+th {
+  background: #e6f4ea;
+  color: #2f5d2f;
+}
+td.left-align {
+  text-align: left;
+}
+td.editable {
+  cursor: pointer;
+  background: #fafffa;
+  position: relative;
+}
+td.editable:hover {
+  background: #e8f5e9;
+}
+input.inline-input, select.inline-select {
+  width: 95%;
+  padding: 4px;
+  font-size: 14px;
+  border: 1px solid #6abf69;
+  border-radius: 4px;
+}
+ul.word-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 5px;
+  border: 1px solid #cce3cc;
+  border-radius: 4px;
+  padding: 5px;
+  background: #f0f8f5;
+}
+ul.word-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 2px 0;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+ul.word-list li button {
+  background: #e57373;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 12px;
+  margin-left: 4px;
+}
+ul.word-list li button:hover {
+  background: #c62828;
+}
+button.close-list {
+  background: #999;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  line-height: 16px;
+  font-size: 12px;
+  font-weight: bold;
+  float: right;
+  margin-bottom: 2px;
+}
+button.close-list:hover {
+  background: #666;
+}
+.add-word-input {
+  width: 90%;
+  margin-top: 4px;
+  padding: 2px 4px;
+  font-size: 13px;
+  border-radius: 4px;
+  border: 1px solid #6abf69;
+}
+
+/* --- 列幅固定 --- */
+th:nth-child(1), td:nth-child(1) { width: 5%; }   /* 番号 */
+th:nth-child(2), td:nth-child(2) { width: 30%; }  /* 部門名 */
+th:nth-child(3), td:nth-child(3) { width: 20%; }  /* 投票先（番号＋名前） */
+th:nth-child(4), td:nth-child(4) { width: 45%; }  /* 理由欄 */
+
+/* --- 複数投票スタイル --- */
+.number-block { margin-bottom: 6px; }
+.vote-display { cursor: pointer; padding: 4px; border-radius: 4px; background: #fff; border: 1px solid transparent; display:inline-block; min-width: 80px; text-align:center; }
+.vote-display:hover { border-color: #cce3cc; background: #f8fff8; }
+.vote-cell { text-align: center; } 
+.left-align { text-align: left; }
+</style>
+</head>
+<body>
+<main>
+  <p>各部門ごとに投票先を選択してください。理由を複数追加するとページのリロードでランダムに表示されます。</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>番号</th>
+        <th>部門名</th>
+        <th>投票先</th>
+        <th>理由</th>
+      </tr>
+    </thead>
+    <tbody id="randomResults"></tbody>
+  </table>
+</main>
+
+<script>
+const fixedCategories = [
+ { id: 1, name: "恋人にしたい" },
+  { id: 2, name: "友だちにしたい" },
+  { id: 3, name: "弟にしたい" },
+  { id: 4, name: "お兄さんにしたい" },
+  { id: 5, name: "先輩になってほしい" },
+  { id: 6, name: "後輩になってほしい" },
+  { id: 7, name: "学校の先生になってほしい" },
+  { id: 8, name: "キスしてみたい" },
+  { id: 9, name: "いちばんおしゃれ" },
+  { id: 10, name: "私服がダサそう" },
+  { id: 11, name: "いちばんセクシー" },
+  { id: 12, name: "いちばんおもしろい" },
+  { id: 13, name: "いちばん美形" },
+  { id: 14, name: "いちばん美声" },
+  { id: 15, name: "ダンスがかっこいい" },
+  { id: 16, name: "グローバルに活躍しそう" },
+  { id: 17, name: "演技がうまい" },
+  { id: 18, name: "絵がヘタそう" },
+  { id: 19, name: "恋人に尽くしそう" },
+  { id: 20, name: "女装が似合いそう" },
+  { id: 21, name: "秒でメールの返信がきそう" },
+  { id: 22, name: "天然キャラっぽい" },
+  { id: 23, name: "泣き虫そう" },
+  { id: 24, name: "ナルシストっぽい" },
+  { id: 25, name: "ニュースキャスターになりそう" },
+  { id: 26, name: "いちばんいいコンビ" },
+  { id: 27, name: "私のリア恋枠" },
+  { id: 28, name: "いちばんMCがうまい" },
+  { id: 29, name: "意外とメガネが似合いそう" },
+  { id: 30, name: "御曹司っぽい" },
+  { id: 31, name: "手料理が食べたい" },
+  { id: 32, name: "いい匂いがしそう" },
+  { id: 33, name: "いちばんもちもち" },
+  { id: 34, name: "犬っぽい" },
+  { id: 35, name: "猫っぽい" },
+  { id: 36, name: "少女マンガの主人公に片思い" },
+  { id: 37, name: "少女マンガでライバルになりそう" },
+  { id: 38, name: "意外と脱いだらムキムキ" },
+  { id: 39, name: "国民の元カレ" },
+  { id: 40, name: "なかよし３人組" },
+  { id: 41, name: "しぐさがメロい" },
+  { id: 42, name: "いちばんバブい" },
+  { id: 43, name: "いちばん美肌" },
+  { id: 44, name: "塩抜き中のアサリに名前をつけそう" },
+  { id: 45, name: "ヘッダーに小さく収めたい" },
+  { name: "高校生以下部門" }, // id 空欄
+  { id: 46, name: "となりの席に座りたい" },
+  { id: 47, name: "いっしょに補習を受けたい" },
+  { id: 48, name: "テスト前" },
+  { id: 49, name: "修学旅行でいっしょの班になりたい" },
+  { id: 50, name: "文化祭でテンション上がって公開告白" },
+  { id: 51, name: "制服を個性的に着こなしそう" },
+  { id: 52, name: "お弁当が大きそう" },
+  { id: 53, name: "ドッジボールでかばってくれそう" },
+  { id: 54, name: "放課後デートしたい" },
+  { id: 55, name: "ドーパミンがいっぱい出てそう" },
+  { id: 49, name: "AIに名前つけてそう" },
+  { id: 50, name: "シール帳が充実してそう" },
+  { id: 51, name: "風呂キャンセルしたら怒ってきそう" },
+  { id: 52, name: "横顔がきれい" },
+  { id: 53, name: "いちばんえらい" },
+  { id: 51, name: "いちばんギャル" },
+  { id: 52, name: "いちばん漢" },
+  { id: 53, name: "いちばん手がきれい" },
+  { id: 53, name: "自分がなりたいジュニア" },
+  { id: 54, name: "教室で窓際のいちばん奥に座ってそう" }
+];
+
+const numberToName = {
+  127: "本髙克樹",
+  40: "川﨑星輝",
+  50: "今野大輝",
+  60: "菅田琳寧",
+  129: "矢花黎",
+  10: "稲葉通陽",
+  62: "鈴木悠仁",
+  103: "橋本涼"
+};
+
+/* --- 複数投票設定 --- */
+const multiVoteCategories = {
+  "いちばんいいコンビ": 2,
+  "少女マンガでライバルになりそう": 2,
+  "なかよし３人組": 3
+};
+
+function getData() {
+  return JSON.parse(localStorage.getItem("categories")) || {};
+}
+function saveData(data) {
+  localStorage.setItem("categories", JSON.stringify(data));
+}
+
+function getNumberArrayForCategory(data, catName) {
+  const entry = data[catName] || {};
+  if (Array.isArray(entry.numbers)) return entry.numbers;
+  if (entry.number !== undefined && entry.number !== null) return [entry.number];
+  return [];
+}
+function setNumberAtIndex(catName, idx, value) {
+  const data = getData();
+  if (!data[catName]) data[catName] = { number: null, numbers: [], words: [] };
+  if (!Array.isArray(data[catName].numbers)) {
+    const single = data[catName].number;
+    data[catName].numbers = [];
+    if (single !== undefined && single !== null) data[catName].numbers[0] = single;
+  }
+  data[catName].numbers[idx] = value === "" || value === null ? null : parseInt(value);
+  saveData(data);
+}
+
+function renderRandomSummary() {
+  const data = getData();
+  const resultsDiv = document.getElementById("randomResults");
+  resultsDiv.innerHTML = "";
+
+  fixedCategories.forEach(cat => {
+    const words = data[cat.name]?.words || [];
+    const randomWord = words.length > 0 ? words[Math.floor(Math.random() * words.length)] : "";
+
+    const row = document.createElement("tr");
+
+    const idCell = document.createElement("td");
+    idCell.textContent = cat.id ?? "";
+    const nameCell = document.createElement("td");
+    nameCell.className = "left-align";
+    nameCell.textContent = cat.name;
+
+    const voteCell = document.createElement("td");
+    voteCell.className = "vote-cell";
+    const maxVotes = multiVoteCategories[cat.name] || 1;
+    const savedNumbers = getNumberArrayForCategory(data, cat.name);
+    for (let i = 0; i < maxVotes; i++) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "number-block";
+      const num = savedNumbers[i] || "";
+      const disp = document.createElement("div");
+      disp.className = "vote-display editable";
+      disp.dataset.type = "number";
+      disp.dataset.category = cat.name;
+      disp.dataset.index = i;
+      disp.textContent = num ? `${num} ${numberToName[num] || ""}` : "";
+      disp.addEventListener("click", (e) => { e.stopPropagation(); makeEditable(disp); });
+      wrapper.appendChild(disp);
+      voteCell.appendChild(wrapper);
+    }
+
+    const reasonCell = document.createElement("td");
+    reasonCell.className = "editable left-align";
+    reasonCell.dataset.type = "word";
+    reasonCell.dataset.category = cat.name;
+    reasonCell.textContent = randomWord;
+    reasonCell.addEventListener("click", (e) => { e.stopPropagation(); showWordList(reasonCell, cat.name); });
+
+    row.appendChild(idCell);
+    row.appendChild(nameCell);
+    row.appendChild(voteCell);
+    row.appendChild(reasonCell);
+    resultsDiv.appendChild(row);
+  });
+}
+
+function makeEditable(td) {
+  const category = td.dataset.category;
+  const type = td.dataset.type;
+  const idx = parseInt(td.dataset.index || 0, 10);
+  if (td.querySelector("select")) return;
+
+  if (type === "number") {
+    const select = document.createElement("select");
+    select.className = "inline-select";
+
+    const emptyOpt = document.createElement("option");
+    emptyOpt.value = "";
+    emptyOpt.textContent = "選択なし";
+    select.appendChild(emptyOpt);
+
+    Object.keys(numberToName).forEach(key => {
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = `${key} ${numberToName[key]}`;
+      select.appendChild(opt);
+    });
+
+    const data = getData();
+    const savedNums = Array.isArray(data[category]?.numbers) ? data[category].numbers : (data[category]?.number !== undefined ? [data[category].number] : []);
+    const cur = savedNums[idx] ?? "";
+    if (cur !== "" && cur !== null) select.value = String(cur);
+
+    td.innerHTML = "";
+    td.appendChild(select);
+    setTimeout(()=> select.focus(), 0);
+
+    select.addEventListener("change", () => {
+      setNumberAtIndex(category, idx, select.value === "" ? null : parseInt(select.value));
+      renderRandomSummary();
+    });
+    select.addEventListener("blur", () => renderRandomSummary());
+  }
+}
+
+function updateData(category, type, value) {
+  let data = getData();
+  if (!data[category]) data[category] = { number: null, numbers: [], words: [] };
+
+  if (type === "number") {
+    const num = parseInt(value);
+    data[category].number = isNaN(num) ? null : num;
+  } else if (type === "word") {
+    if (value && !data[category].words.includes(value)) data[category].words.push(value);
+  }
+  saveData(data);
+}
+
+function showWordList(td, category) {
+  if (td.querySelector(".word-list")) return;
+  const data = getData();
+  const words = data[category]?.words || [];
+
+  const ul = document.createElement("ul");
+  ul.className = "word-list";
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "close-list";
+  closeBtn.innerHTML = "×";
+  closeBtn.addEventListener("click", (e) => { e.stopPropagation(); ul.remove(); closeBtn.remove(); });
+  td.appendChild(closeBtn);
+
+  words.forEach((w, i) => {
+    const li = document.createElement("li");
+    const span = document.createElement("span");
+    span.textContent = w;
+    span.style.cursor = "pointer";
+    span.addEventListener("click", () => {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = w;
+      input.className = "inline-input";
+      li.innerHTML = "";
+      li.appendChild(input);
+      input.focus();
+      input.addEventListener("blur", () => {
+        const newVal = input.value.trim();
+        if (newVal) data[category].words[i] = newVal;
+        else data[category].words.splice(i, 1);
+        saveData(data);
+        renderRandomSummary();
+      });
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+    });
+    const delBtn = document.createElement("button");
+    delBtn.textContent = "削除";
+    delBtn.addEventListener("click", () => {
+      data[category].words.splice(i, 1);
+      saveData(data);
+      renderRandomSummary();
+    });
+    li.appendChild(span);
+    li.appendChild(delBtn);
+    ul.appendChild(li);
+  });
+
+  const inputNew = document.createElement("input");
+  inputNew.type = "text";
+  inputNew.placeholder = "新しい理由を追加";
+  inputNew.className = "add-word-input";
+  inputNew.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.stopPropagation();
+      const val = inputNew.value.trim();
+      if (val) {
+        updateData(category, "word", val);
+        inputNew.value = "";
+        renderRandomSummary();
+        showWordList(td, category);
+      }
+    }
+  });
+  ul.appendChild(inputNew);
+  td.appendChild(ul);
+}
+
+window.onload = renderRandomSummary;
+</script>
+</body>
+
+</html>
+
